@@ -3,10 +3,10 @@ package ayxauth
 import (
 	"bytes"
 	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
+	"math/rand"
 	"sort"
 	"strconv"
 	"time"
@@ -105,10 +105,17 @@ func shouldEscape(c byte) bool {
 	return true
 }
 
+func randSeq(n int) string {
+	b := make([]rune, n)
+	var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
+
 func generateNonce() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return base64.StdEncoding.EncodeToString(b)
+	return (randSeq(6))
 }
 
 func generateTimestamp() string {
