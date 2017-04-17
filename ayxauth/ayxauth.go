@@ -1,18 +1,79 @@
 package ayxauth
 
+import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha1"
+	"encoding/base64"
+	"fmt"
+	"sort"
+	"strconv"
+	"time"
+)
+
+// AyxSigner struct holds params required for building
+// requests
 type AyxSigner struct {
-  ConsumerKey string
-  ConsumerSecret string
-  GalleryUrl string
-  Endpoint string
+	ConsumerKey    string
+	ConsumerSecret string
+	GalleryURL     string
 }
 
-func (ayxSigner *AyxSigner) BuildRequest() (string, error) {
-    signer := *ayxSigner
-    consumerKey := signer.ConsumerKey
-    consumerSecret :=
-  }
+// BuildRequest actually generates a request when passed
+// ayxSigner struct
+func (ayxSigner *AyxSigner) BuildRequest(endpoint string,
+	httpMethod string) string {
+	signer := *ayxSigner
+	consumerKey := signer.ConsumerKey
+	consumerSecret := signer.ConsumerSecret
+	galleryURL := signer.GalleryURL
 
+	//Build out a clean map for payload params.
+	paramsMap := make(map[string]string)
+
+	paramsMap["oauth_consumer_key"] = consumerKey
+	paramsMap["oauth_nonce"] = generateNonce()
+	paramsMap["oauth_signature_method"] = "HMAC-SHA1"
+	paramsMap["oauth_timestamp"] = generateTimestamp()
+	paramsMap["oauth_version"] = "1.0"
+
+	//Build request URL
+	requestURL := galleryURL + endpoint
+	encodedURL := httpMethod + "&" + PercentEncode(requestURL)
+
+	// Concatenate the payload params with key/val
+	// in aplphabetical order
+	paramsList := make([]string, 0, len(paramsMap))
+	for paramKey := range paramsMap {
+		paramsList = append(paramsList, paramKey)
+	}
+	sort.Strings(paramsList)
+
+	var concatParams string
+	for pIndex, param := range paramsList {
+		if pIndex < (len(paramsMap) - 1) {
+			concatParams = concatParams + param + "=" + paramsMap[param] + "&"
+		} else {
+			concatParams = concatParams + param + "=" + paramsMap[param]
+		}
+	}
+	// Encode the concatenated parameter string
+	encodedParams := PercentEncode(concatParams)
+
+	// Create signature base string
+	signatureBaseString := encodedURL + "&" + encodedParams
+
+	// Create oauth 1.0 signature
+	consumerSecret = PercentEncode(consumerSecret) + "&"
+	mac := hmac.New(sha1.New, []byte(consumerSecret))
+	mac.Write([]byte(signatureBaseString))
+	signatureBytes := mac.Sum(nil)
+	signature := base64.StdEncoding.EncodeToString(signatureBytes)
+	fmt.Println(signature)
+	requestURL = requestURL + "?" + concatParams + "&oauth_signature=" + PercentEncode(signature)
+	return (requestURL)
+}
 
 // PercentEncode percent encodes a string according to RFC 3986 2.1.
 func PercentEncode(input string) string {
