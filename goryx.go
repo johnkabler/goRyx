@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"goryx/ayxauth"
+	"goryx/ayxdl"
 	"goryx/ayxfetch"
 	"os"
 	"path/filepath"
@@ -10,13 +11,34 @@ import (
 
 func main() {
 	if len(os.Args) == 1 {
-		fmt.Printf(`usage: %s <alteryx_consumerKey> <alteryx_clientKey> <galleryUrl>
+		fmt.Printf(`usage: %s <alteryx_consumerKey> <alteryx_consumerSecret> <galleryUrl>
 			<endpoint> <file_output_path>
 
-			possible values for "endpoint" parameter:
+			alteryx_consumerKey: The key provided by activating Gallery API
 
-			workflows :  Fetches list of all workflows.
-			connections : Fetches list of all data connections (both server and system)`,
+			alteryx_consumerSecret: The secret provided by activating Gallery API
+
+			galleryUrl: This is the URL of the API endpoint.
+									For admin use, use
+									http://{hostname}/gallery/api/admin/v1/
+
+									For nonAdmin use, use
+									http://{hostname}/gallery/api/v1/
+									****** NOTE ***********
+									NonAdmin users will not be able to connections, and will
+									only be able to download workflows that are present in their
+									respective studio.
+
+			endpoint:  This specifies which function the method the user wants to
+								 call on the API.
+
+								 Possible values for "endpoint" parameter:
+
+							workflows :  Fetches list of all workflows.
+							connections : Fetches list of all data connections (both server and system)
+							download :  This will download all of the Alteryx workflows that have
+													been deployed to the Gallery.  Note that the file_output_path
+													parameter needs to be a directory for this function.`,
 			filepath.Base(os.Args[0]))
 		os.Exit(1)
 	}
@@ -49,5 +71,9 @@ func main() {
 		fmt.Println(connectionsList)
 		output := []*ayxfetch.ConnectionRecord{}
 		ayxfetch.WriteConnections(*connectionsList, &output, outputPath)
+	case "download":
+		fmt.Println("download")
+		ayxdl.DownloadAllWorkflows(&signer, outputPath)
+
 	}
 }
