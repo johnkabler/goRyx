@@ -73,7 +73,8 @@ func main() {
 		ayxfetch.WriteConnections(*connectionsList, &output, outputPath)
 	case "download":
 		fmt.Println("download")
-		ayxdl.DownloadAllWorkflows(&signer, outputPath)
+		output := ayxdl.DownloadAllWorkflows(&signer, outputPath)
+		ayxdl.WriteDownloadedFiles(output)
 
 	}
 }
