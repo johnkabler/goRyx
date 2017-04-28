@@ -1,10 +1,13 @@
 package ayxdl
 
 import (
+	"archive/zip"
 	"fmt"
 	"goryx/ayxauth"
 	"goryx/ayxfetch"
+	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/cavaliercoder/grab"
 	"github.com/gocarina/gocsv"
@@ -13,7 +16,9 @@ import (
 // DownloadRecord struct will hold values for each file downloaded
 // to ensure we can write a record of all files retrieved to a csv.
 type DownloadRecord struct {
+	AppID    string `csv:"AppID"`
 	FilePath string `csv:"FilePath"`
+	FileName string `csv:"FileName"`
 }
 
 // DownloadWorkflow method creates a signed request for the given appID,
@@ -59,8 +64,16 @@ func DownloadAllWorkflows(ayxSigner *ayxauth.AyxSigner, outputDir string) *[]*Do
 			os.Exit(1)
 		}
 
-		records = append(records, &DownloadRecord{
-			FilePath: resp.Filename})
+		unzip(resp.Filename, outputDir+workflow.ID)
+
+		fileList := listFiles(outputDir + workflow.ID)
+
+		for _, fileName := range fileList {
+			records = append(records, &DownloadRecord{
+				AppID:    workflow.ID,
+				FilePath: outputDir + workflow.ID,
+				FileName: fileName})
+		}
 
 		fmt.Printf("Successfully downloaded to %s\n", resp.Filename)
 
@@ -71,8 +84,8 @@ func DownloadAllWorkflows(ayxSigner *ayxauth.AyxSigner, outputDir string) *[]*Do
 // WriteDownloadedFiles will create a CSV which lists out the paths
 // to the files that have been downloaded.  This makes for easier integration
 // with other tools in Alteryx.
-func WriteDownloadedFiles(records *[]*DownloadRecord) {
-	outputFile := `.\results.csv`
+func WriteDownloadedFiles(records *[]*DownloadRecord, outputPath string) {
+	outputFile := outputPath + `downloadresults.csv`
 	csvContent, csvErr := gocsv.MarshalString(records)
 	if csvErr != nil {
 		panic(csvErr)
@@ -88,4 +101,64 @@ func WriteDownloadedFiles(records *[]*DownloadRecord) {
 	if writeErr != nil {
 		panic(writeErr)
 	}
+}
+
+// Helper functions
+func unzip(archive, target string) error {
+	reader, err := zip.OpenReader(archive)
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(target, 0755); err != nil {
+		return err
+	}
+
+	for _, file := range reader.File {
+		path := filepath.Join(target, file.Name)
+		if file.FileInfo().IsDir() {
+			os.MkdirAll(path, file.Mode())
+			continue
+		}
+
+		fileReader, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer fileReader.Close()
+
+		targetFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+		if err != nil {
+			return err
+		}
+		defer targetFile.Close()
+
+		if _, err := io.Copy(targetFile, fileReader); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func listFiles(directory string) []string {
+	dirname := directory + string(filepath.Separator)
+
+	d, err := os.Open(dirname)
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	defer d.Close()
+
+	files, err := d.Readdirnames(-1)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	fmt.Println("Reading " + dirname)
+
+	return files
 }

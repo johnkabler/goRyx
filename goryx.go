@@ -74,7 +74,7 @@ func main() {
 	case "download":
 		fmt.Println("download")
 		output := ayxdl.DownloadAllWorkflows(&signer, outputPath)
-		ayxdl.WriteDownloadedFiles(output)
+		ayxdl.WriteDownloadedFiles(output, outputPath)
 
 	}
 }
